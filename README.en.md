@@ -17,6 +17,15 @@ One port, one set of keys, all models. Any OpenAI-compatible client (OpenAI SDK,
 | 🌐 LAN access | Standalone listener on all interfaces (default port `3090`, editable in the page); the DSH UI itself stays private |
 | 🎛 Sidebar page | Overview / Models / Groups / Keys tabs; add aliases and group membership right on a model row |
 
+## Compatibility
+
+| | |
+|---|---|
+| DeepSeek Harness | `0.1.5-rc.2` through `0.2.x`, prereleases included |
+| Node.js | `^22.19.0 \|\| >=24` (built-in `node:sqlite`) |
+
+Official `@deepseek-ai/*` packages are declared as `peerDependencies` and come from DSH; the plugin ships no copy of them.
+
 ## Install
 
 ```sh
