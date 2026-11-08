@@ -1,14 +1,15 @@
 /**
- * Dev-only resolve hooks: stand in for the DSH host modules the real Loader
- * injects. The llm stand-in re-exports the REAL 0.1.5 dsh-llm from the loomy
- * pnpm store so message constructors keep their exact shapes.
+ * Resolve hooks that stand in for the harness modules the real Loader injects,
+ * so `npm test` runs without a harness checkout. The doubles keep only the
+ * shapes lib/index.js touches at load time; behaviour under test is the
+ * gateway's own translation layer.
  */
 export async function resolve(specifier, context, nextResolve) {
   if (specifier === '@deepseek-ai/dsh-llm') {
     return { url: new URL('./smoke-llm.mjs', import.meta.url).href, shortCircuit: true }
   }
   if (specifier === '@deepseek-ai/schemastery') {
-    return { url: 'file:///E:/workspace/connection-all/loomy/dsh-loomy-connect/node_modules/.pnpm/@deepseek-ai+schemastery@3.18.2/node_modules/@deepseek-ai/schemastery/lib/index.mjs', shortCircuit: true }
+    return { url: new URL('./smoke-schemastery.mjs', import.meta.url).href, shortCircuit: true }
   }
   if (specifier === '@deepseek-ai/dsh-home-paths') {
     return { url: new URL('./smoke-home-paths.mjs', import.meta.url).href, shortCircuit: true }
