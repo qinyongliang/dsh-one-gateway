@@ -29,7 +29,7 @@
 ## 安装
 
 ```sh
-dsh plugin --profile web add github:gdrpzym/dsh-one-gateway
+dsh plugin --profile web add github:qinyongliang/dsh-one-gateway
 ```
 
 或本地目录：

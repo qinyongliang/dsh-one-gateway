@@ -5,14 +5,14 @@
   "description": "One OpenAI-compatible gateway for every model connected to DeepSeek Harness: groups with failover, aliases, session stickiness, usage charts, API keys and LAN access.",
   "type": "module",
   "license": "Apache-2.0",
-  "author": "gdrpzym",
+  "author": "qinyongliang",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gdrpzym/dsh-one-gateway.git"
+    "url": "git+https://github.com/qinyongliang/dsh-one-gateway.git"
   },
-  "homepage": "https://github.com/gdrpzym/dsh-one-gateway#readme",
+  "homepage": "https://github.com/qinyongliang/dsh-one-gateway#readme",
   "bugs": {
-    "url": "https://github.com/gdrpzym/dsh-one-gateway/issues"
+    "url": "https://github.com/qinyongliang/dsh-one-gateway/issues"
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"

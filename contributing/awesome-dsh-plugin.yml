@@ -1,10 +1,10 @@
 # Submission entry for awesome-dsh-plugin.
-# PR target: data/plugins/gdrpzym__dsh-one-gateway.yml in
+# PR target: data/plugins/qinyongliang__dsh-one-gateway.yml in
 # https://github.com/awesome-dsh-plugin/awesome-dsh-plugin
-url: https://github.com/gdrpzym/dsh-one-gateway
-name: gdrpzym/dsh-one-gateway
+url: https://github.com/qinyongliang/dsh-one-gateway
+name: qinyongliang/dsh-one-gateway
 category: model
 description:
   en: 'OpenAI-compatible gateway for every connected model: groups with failover, aliases, session stickiness, usage charts, API keys and a LAN listener.'
   zh: '把已连接模型以 OpenAI 兼容接口对外提供：分组与故障转移、别名、会话粘滞、调用图表、API 密钥与局域网监听。'
-icon: https://raw.githubusercontent.com/gdrpzym/dsh-one-gateway/main/assets/icon-180.png
+icon: https://raw.githubusercontent.com/qinyongliang/dsh-one-gateway/main/assets/icon-180.png

@@ -29,7 +29,7 @@ Official `@deepseek-ai/*` packages are declared as `peerDependencies` and come f
 ## Install
 
 ```sh
-dsh plugin --profile web add github:gdrpzym/dsh-one-gateway
+dsh plugin --profile web add github:qinyongliang/dsh-one-gateway
 ```
 
 Or from a local directory:
