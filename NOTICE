@@ -1,0 +1,10 @@
+dsh-one-gateway
+Copyright 2026 qinyongliang
+
+This product includes software developed as part of the Open Source project
+"dsh-model-relay" (https://github.com/qilin-zhu/dsh-model-relay) and its fork
+"dsh-model-gateway" (https://github.com/Leafyezi233/dsh-model-gateway),
+both licensed under the Apache License, Version 2.0.
+
+It also includes an icon rendering adapted from the MIT-licensed project
+"dsh-openai-gateway" (https://github.com/pigman18/dsh-openai-gateway).
