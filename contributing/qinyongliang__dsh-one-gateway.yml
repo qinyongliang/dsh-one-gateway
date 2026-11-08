@@ -1,6 +1,6 @@
-# Submission entry for awesome-dsh-plugin.
-# PR target: data/plugins/qinyongliang__dsh-one-gateway.yml in
-# https://github.com/awesome-dsh-plugin/awesome-dsh-plugin
+# Submission entry for https://github.com/awesome-dsh-plugin/awesome-dsh-plugin
+# Drop this file into that repository as:
+#   data/plugins/qinyongliang__dsh-one-gateway.yml
 url: https://github.com/qinyongliang/dsh-one-gateway
 name: qinyongliang/dsh-one-gateway
 category: model
