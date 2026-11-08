@@ -1,0 +1,14 @@
+# One Gateway: OpenAI-compatible /v1 for every connected model.
+# Groups, aliases, sticky sessions, usage charts, API keys.
+# The standalone listener binds all interfaces on lanPort; create an API key
+# on the gateway page before exposing it to other devices.
+- insert:
+    - id: dsh-one-gateway
+      name: dsh-one-gateway
+      inject:
+        - llm
+        - webServer
+      config:
+        path: /v1
+        lanPort: 3090
+        lanHost: 0.0.0.0

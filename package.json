@@ -1,0 +1,76 @@
+{
+  "name": "dsh-one-gateway",
+  "displayName": "One Gateway",
+  "version": "1.0.0",
+  "description": "One OpenAI-compatible gateway for every model connected to DeepSeek Harness: groups with failover, aliases, session stickiness, usage charts, API keys and LAN access.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "author": "gdrpzym",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gdrpzym/dsh-one-gateway.git"
+  },
+  "homepage": "https://github.com/gdrpzym/dsh-one-gateway#readme",
+  "bugs": {
+    "url": "https://github.com/gdrpzym/dsh-one-gateway/issues"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "README.en.md",
+    "LICENSE",
+    "assets"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "openai-compatible",
+    "gateway",
+    "llm-router",
+    "model-gateway"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-connection"
+      ],
+      "platform": "web"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-client-locale": ">=0.1.5-rc.2 <0.2.0 || >=0.2.0-rc.1 <0.3.0-0",
+    "@deepseek-ai/dsh-client-ui-settings": ">=0.1.5-rc.2 <0.2.0 || >=0.2.0-rc.1 <0.3.0-0",
+    "@deepseek-ai/dsh-home-paths": ">=0.1.5-rc.2 <0.2.0 || >=0.2.0-rc.1 <0.3.0-0",
+    "@deepseek-ai/dsh-host-webserver": ">=0.1.5-rc.2 <0.2.0 || >=0.2.0-rc.1 <0.3.0-0",
+    "@deepseek-ai/dsh-llm": ">=0.1.5-rc.2 <0.2.0 || >=0.2.0-rc.1 <0.3.0-0",
+    "@deepseek-ai/schemastery": "^3.18.2"
+  },
+  "scripts": {
+    "check": "node --check lib/index.js && node --check lib/keys.js && node --check lib/groups.js && node --check lib/strategy.js && node --check lib/stats.js && node --check lib/stats-store.js && node --check lib/aliases.js && node --check lib/request-store.js && node --check lib/client.js",
+    "test": "node test/run.mjs && node test/request-store.test.mjs"
+  },
+  "icon": "assets/icon-128.png"
+}

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "One Gateway",
+    "description": "One OpenAI-compatible endpoint for every connected model: groups, aliases, sticky sessions, usage charts, API keys and LAN access."
+  }
+}

@@ -1,0 +1,7 @@
+url: https://github.com/gdrpzym/dsh-one-gateway
+name: gdrpzym/dsh-one-gateway
+category: model
+description:
+  en: One OpenAI-compatible endpoint for every connected model, with groups, aliases, session stickiness, usage charts and API keys.
+  zh: 把已连接模型以一个 OpenAI 兼容接口对外提供，支持分组、别名、会话粘滞、调用图表与 API 密钥。
+icon: https://raw.githubusercontent.com/gdrpzym/dsh-one-gateway/main/assets/icon-180.png
