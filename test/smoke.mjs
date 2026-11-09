@@ -396,67 +396,94 @@ async function main() {
   assert.ok(revived, 'the live group is not hidden by a stale dismissal: ' + JSON.stringify(r.value.groups.map((g) => g.name)))
   console.log('PASS a dismissal does not outlive the group it hides')
 
-  // 8g. per-model stop switch: stops scheduling, does NOT delete.
-  // The model must stay listed (so the switch can be turned back on and so a
-  // group keeps offering it as a candidate), it must stop being advertised and
-  // it must refuse requests.
-  r = await settingsCall(fetchRoutes, 'setModelDisabled', { id: 'alpha_bad', disabled: true })
-  assert.ok(r.ok, JSON.stringify(r))
-  r = await settingsCall(fetchRoutes, 'status')
-  assert.equal(r.value.overrides.alpha_bad.disabled, true, 'override persisted')
-  assert.ok(r.value.models.some((m) => m.id === 'alpha_bad'), 'stopped model still listed in the settings catalog')
-  assert.equal(r.value.models.find((m) => m.id === 'alpha_bad').stopped, true, 'stopped flag rides the listing')
-  // still offered to the group editor as a candidate
-  r = await settingsCall(fetchRoutes, 'listGroups')
-  assert.ok(r.ok)
-  const poolModels = await (await fetch(base + '/models?all=1')).json()
-  assert.ok(!poolModels.data.some((m) => m.id === 'alpha_bad'), 'stopped model not advertised')
-  chat = await (await post('/chat/completions', { model: 'alpha_bad', messages: [{ role: 'user', content: 'hi' }] })).json()
-  assert.equal(chat.error?.code, 'model_disabled', 'stopped model refuses requests: ' + JSON.stringify(chat).slice(0, 160))
-  // resuming restores it
-  r = await settingsCall(fetchRoutes, 'setModelDisabled', { id: 'alpha_bad', disabled: false })
-  assert.ok(r.ok)
-  r = await settingsCall(fetchRoutes, 'status')
-  assert.equal(r.value.overrides.alpha_bad, undefined, 'override cleared on resume')
-  assert.equal(r.value.models.find((m) => m.id === 'alpha_bad').stopped, false, 'flag cleared on resume')
-  const back = await (await fetch(base + '/models?all=1')).json()
-  assert.ok(back.data.some((m) => m.id === 'alpha_bad'), 'resumed model advertised again')
-  console.log('PASS per-model stop switch stops scheduling but keeps the model listed')
+  // 8g. There is no per-model switch. A model is a target; availability is a
+  // property of the names pointing at it, so an alias owns its own switch and
+  // stopping one alias must not disturb another that points at the same model.
+  {
+    // Two aliases on a model that ANSWERS, so "the sibling still serves" is a
+    // statement about the switch rather than about the model's health.
+    r = await settingsCall(fetchRoutes, 'setAlias', { alias: 'badname', target: 'alpha_good' })
+    assert.ok(r.ok, JSON.stringify(r))
+    r = await settingsCall(fetchRoutes, 'setAlias', { alias: 'badname2', target: 'alpha_good' })
+    assert.ok(r.ok, JSON.stringify(r))
 
-  // 8h. a group candidate can be stopped without leaving the group
+    // The switch exists on the alias, not on the model.
+    r = await settingsCall(fetchRoutes, 'setAliasEnabled', { alias: 'badname', enabled: false })
+    assert.ok(r.ok, JSON.stringify(r))
+    r = await settingsCall(fetchRoutes, 'status')
+    assert.equal(r.value.aliases.find((a) => a.alias === 'badname').enabled, false, 'alias switch persisted')
+    assert.ok(r.value.models.some((m) => m.id === 'alpha_bad'), 'model stays in the settings catalog')
+
+    // A stopped alias refuses its own name...
+    chat = await (await post('/chat/completions', { model: 'badname', messages: [{ role: 'user', content: 'hi' }] })).json()
+    assert.equal(chat.error?.code, 'model_disabled', 'stopped alias refuses requests: ' + JSON.stringify(chat).slice(0, 160))
+
+    // ...while the other alias at the same model is untouched. This is the
+    // whole point: one name's switch never governs another.
+    chat = await (await post('/chat/completions', { model: 'badname2', messages: [{ role: 'user', content: 'hi' }] })).json()
+    assert.ok(chat.choices?.[0]?.message?.content !== undefined, 'sibling alias at the same model still serves: ' + JSON.stringify(chat).slice(0, 160))
+
+    // Resuming restores it.
+    r = await settingsCall(fetchRoutes, 'setAliasEnabled', { alias: 'badname', enabled: true })
+    assert.ok(r.ok)
+    chat = await (await post('/chat/completions', { model: 'badname', messages: [{ role: 'user', content: 'hi' }] })).json()
+    assert.ok(chat.choices?.[0]?.message?.content !== undefined, 'resumed alias serves again')
+
+    // Re-pointing an alias keeps its switch rather than silently resuming it.
+    r = await settingsCall(fetchRoutes, 'setAliasEnabled', { alias: 'badname', enabled: false })
+    assert.ok(r.ok)
+    r = await settingsCall(fetchRoutes, 'setAlias', { alias: 'badname', target: 'alpha_good' })
+    assert.ok(r.ok)
+    r = await settingsCall(fetchRoutes, 'status')
+    assert.equal(r.value.aliases.find((a) => a.alias === 'badname').enabled, false, 're-pointing keeps the alias stopped')
+
+    await settingsCall(fetchRoutes, 'removeAlias', { alias: 'badname' })
+    await settingsCall(fetchRoutes, 'removeAlias', { alias: 'badname2' })
+  }
+  console.log('PASS an alias owns its switch; a sibling alias at the same model is unaffected')
+
+  // 8h. a group candidate is stopped within the group, not globally.
   {
     r = await settingsCall(fetchRoutes, 'createGroup', { name: 'schedpool', models: ['alpha_good', 'beta_good'], strategy: 'sequential' })
     assert.ok(r.ok, JSON.stringify(r))
     chat = await (await post('/chat/completions', { model: 'schedpool', messages: [{ role: 'user', content: 'hi' }] })).json()
     assert.equal(chat.choices?.[0]?.message?.content, '你好', 'group serves through its head: ' + JSON.stringify(chat).slice(0, 160))
-    // stop the head: the member stays in the group, the next leg takes over
-    r = await settingsCall(fetchRoutes, 'setModelDisabled', { id: 'alpha_good', disabled: true })
+
+    // Stop the head inside this group: the member stays, the next leg serves.
+    r = await settingsCall(fetchRoutes, 'setGroupMemberStopped', { id: 'schedpool', model: 'alpha_good', stopped: true })
     assert.ok(r.ok, JSON.stringify(r))
     r = await settingsCall(fetchRoutes, 'listGroups')
     const schedpool = r.value.groups.find((g) => g.name === 'schedpool')
     assert.deepEqual(schedpool.models, ['alpha_good', 'beta_good'], 'stopped member is NOT removed from the group')
-    r = await settingsCall(fetchRoutes, 'status')
-    assert.equal(r.value.models.find((m) => m.id === 'alpha_good').stopped, true, 'candidate still listed, flagged')
+    assert.deepEqual(schedpool.stopped, ['alpha_good'], 'the stopped set is recorded on the group')
     chat = await (await post('/chat/completions', { model: 'schedpool', messages: [{ role: 'user', content: 'hi' }] })).json()
     assert.equal(chat.choices?.[0]?.message?.content, '你好', 'group still answers via the remaining leg')
-    // stop the last usable leg: the group has no candidate left, but keeps both members
-    r = await settingsCall(fetchRoutes, 'setModelDisabled', { id: 'beta_good', disabled: true })
+
+    // Stopping it in one group does not affect the same model elsewhere.
+    r = await settingsCall(fetchRoutes, 'setAlias', { alias: 'alphagood', target: 'alpha_good' })
+    assert.ok(r.ok)
+    chat = await (await post('/chat/completions', { model: 'alphagood', messages: [{ role: 'user', content: 'hi' }] })).json()
+    assert.ok(chat.choices?.[0]?.message?.content !== undefined, 'the same model is still callable through an alias')
+    await settingsCall(fetchRoutes, 'removeAlias', { alias: 'alphagood' })
+
+    // Stop the last usable leg: the group has no candidate left, but keeps both.
+    r = await settingsCall(fetchRoutes, 'setGroupMemberStopped', { id: 'schedpool', model: 'beta_good', stopped: true })
     assert.ok(r.ok)
     chat = await (await post('/chat/completions', { model: 'schedpool', messages: [{ role: 'user', content: 'hi' }] })).json()
     assert.equal(chat.error?.code, 'group_empty', 'all-stopped group refuses: ' + JSON.stringify(chat).slice(0, 160))
     r = await settingsCall(fetchRoutes, 'listGroups')
     assert.equal(r.value.groups.find((g) => g.name === 'schedpool').models.length, 2, 'members survive an empty pool')
-    // resume both: the group works again
-    r = await settingsCall(fetchRoutes, 'setModelDisabled', { id: 'alpha_good', disabled: false })
-    assert.ok(r.ok)
-    r = await settingsCall(fetchRoutes, 'setModelDisabled', { id: 'beta_good', disabled: false })
-    assert.ok(r.ok)
-    chat = await (await post('/chat/completions', { model: 'schedpool', messages: [{ role: 'user', content: 'hi' }] })).json()
-    assert.equal(chat.choices?.[0]?.message?.content, '你好', 'resumed group serves again')
+
+    // Removing a candidate drops its stale stopped mark.
+    r = await settingsCall(fetchRoutes, 'updateGroup', { id: 'schedpool', models: ['beta_good'] })
+    assert.ok(r.ok, JSON.stringify(r))
+    r = await settingsCall(fetchRoutes, 'listGroups')
+    assert.deepEqual(r.value.groups.find((g) => g.name === 'schedpool').stopped, ['beta_good'], 'the mark for a removed candidate is dropped')
+
     r = await settingsCall(fetchRoutes, 'removeGroup', { id: 'schedpool' })
     assert.ok(r.ok)
   }
-  console.log('PASS group candidate stop switch keeps the member, skips it in scheduling')
+  console.log('PASS a group candidate is stopped within its group only')
 
   // 8h. the group picker lists real models only (no alias duplicates)
   r = await settingsCall(fetchRoutes, 'setAlias', { alias: 'goodalias', target: 'alpha_good' })
