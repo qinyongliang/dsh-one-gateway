@@ -37,6 +37,21 @@ assert.equal(f.refused, 1)
 const act = store.activity({})
 assert.equal(Object.keys(act).length, 2, 'wall covers old + new day: ' + JSON.stringify(act))
 
+// activityDetail: the per-day consumption the wall's tooltip shows. Same day
+// keys as activity, but each value is a breakdown rather than a bare count.
+const detail = store.activityDetail({})
+assert.deepEqual(Object.keys(detail).sort(), Object.keys(act).sort(), 'same days as the wall: ' + JSON.stringify(detail))
+const todayKey = Object.keys(detail).sort().pop()
+assert.equal(detail[todayKey].requests, act[todayKey], 'count agrees with activity: ' + JSON.stringify(detail[todayKey]))
+assert.equal(detail[todayKey].inputTokens, 10, 'input tokens summed: ' + JSON.stringify(detail[todayKey]))
+assert.equal(detail[todayKey].outputTokens, 5, 'output tokens summed: ' + JSON.stringify(detail[todayKey]))
+assert.equal(detail[todayKey].answered, 1)
+assert.equal(detail[todayKey].refused, 1)
+// Filtered detail narrows like every other aggregate.
+const detailK2 = store.activityDetail({ key: 'k2' })
+assert.equal(detailK2[todayKey].requests, 1, 'filter applied: ' + JSON.stringify(detailK2))
+assert.equal(detailK2[todayKey].inputTokens, 0)
+
 // pagination
 store.record({ ts: now, key: 'k1', provider: 'p1', model: 'm1', status: 'answered', inputTokens: 1, outputTokens: 1 })
 const p1 = store.rows({ limit: 2, offset: 0 })
