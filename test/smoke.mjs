@@ -240,6 +240,27 @@ async function main() {
   assert.deepEqual(trimmed.models, ['alpha_good'], 'trimmed auto group re-merged: ' + JSON.stringify(trimmed.models))
   console.log('PASS trimmed auto group stays trimmed after autoAlias')
 
+  // 8e. same alias on a second model -> group of both, first model keeps the name
+  r = await settingsCall(fetchRoutes, 'setAlias', { alias: 'shared', target: 'alpha_good' })
+  assert.ok(r.ok, JSON.stringify(r))
+  assert.equal(r.value.merged, false)
+  r = await settingsCall(fetchRoutes, 'setAlias', { alias: 'shared', target: 'beta_good' })
+  assert.ok(r.ok, JSON.stringify(r))
+  assert.equal(r.value.merged, true, 'collision must merge: ' + JSON.stringify(r.value))
+  assert.equal(r.value.reason, 'alias-collision')
+  assert.deepEqual(r.value.group.models.sort(), ['alpha_good', 'beta_good'], 'group holds both models')
+  r = await settingsCall(fetchRoutes, 'listAliases')
+  assert.ok(!r.value.aliases.some((a) => a.alias === 'shared'), 'stale alias removed once the group owns the name')
+  // the name resolves to the group and serves through failover
+  chat = await (await post('/chat/completions', { model: 'shared', messages: [{ role: 'user', content: 'hi' }] })).json()
+  assert.equal(chat.choices?.[0]?.message?.content, '你好', 'name serves via the group: ' + JSON.stringify(chat).slice(0, 200))
+  // adding a third model to the same name extends the same group
+  r = await settingsCall(fetchRoutes, 'setAlias', { alias: 'shared', target: 'alpha_bad' })
+  assert.ok(r.ok)
+  assert.equal(r.value.reason, 'name-is-a-group')
+  assert.equal(r.value.group.models.length, 3)
+  console.log('PASS alias collision promotes to a group instead of stealing the name')
+
   // 9. keys
   r = await settingsCall(fetchRoutes, 'createKey', { label: 'smoke' })
   assert.ok(r.ok)
