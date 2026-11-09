@@ -290,6 +290,18 @@ async function main() {
   assert.ok(back.data.some((m) => m.id === 'alpha_bad'), 'resumed model advertised again')
   console.log('PASS per-model stop switch hides and refuses, resume restores')
 
+  // 8h. the group picker lists real models only (no alias duplicates)
+  r = await settingsCall(fetchRoutes, 'setAlias', { alias: 'goodalias', target: 'alpha_good' })
+  assert.ok(r.ok)
+  r = await settingsCall(fetchRoutes, 'listGroups')
+  const pickerIds = r.value.models.map((m) => m.id)
+  const dupes = pickerIds.filter((id, i) => pickerIds.indexOf(id) !== i)
+  assert.deepEqual(dupes, [], 'picker has duplicate ids: ' + JSON.stringify(dupes))
+  assert.ok(!pickerIds.includes('goodalias'), 'alias entry must not be a picker candidate')
+  const targets = r.value.models.filter((m) => m.rawId === 'alpha_good' || m.id === 'alpha_good')
+  assert.equal(targets.length, 1, 'exactly one row per underlying model: ' + JSON.stringify(targets.map((m) => m.id)))
+  console.log('PASS group picker lists models without alias duplicates')
+
   // 9. keys
   r = await settingsCall(fetchRoutes, 'createKey', { label: 'smoke' })
   assert.ok(r.ok)
