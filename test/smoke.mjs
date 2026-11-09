@@ -277,6 +277,36 @@ async function main() {
   assert.equal(r.value.group.models.length, 3)
   console.log('PASS alias collision promotes to a group instead of stealing the name')
 
+  // 8e2. A name is case-insensitive: typing an existing name in another case
+  // must reach the SAME group and add the model, not create a second name
+  // beside it. This is the reported bug: the save looked like it did nothing
+  // and the model never joined the group.
+  r = await settingsCall(fetchRoutes, 'setAlias', { alias: 'SHARED', target: 'beta_bad' })
+  assert.ok(r.ok, 'uppercase spelling must be accepted: ' + JSON.stringify(r))
+  assert.equal(r.value.merged, true, 'case-variant claim merges into the group: ' + JSON.stringify(r.value))
+  assert.equal(r.value.group.name, 'shared', 'stored under the folded name')
+  assert.ok(r.value.group.models.includes('beta_bad'), 'the claiming model joined the group: ' + JSON.stringify(r.value.group.models))
+  r = await settingsCall(fetchRoutes, 'listGroups')
+  assert.equal(r.value.groups.filter((g) => g.name.toLowerCase() === 'shared').length, 1, 'no duplicate group in another case')
+  r = await settingsCall(fetchRoutes, 'listAliases')
+  assert.ok(!r.value.aliases.some((a) => a.alias !== a.alias.toLowerCase()), 'every stored alias is lowercase: ' + JSON.stringify(r.value.aliases))
+  console.log('PASS a name is case-insensitive, so a re-spelled claim joins the same group')
+
+  // 8e3. A name the user deleted is remembered against the AUTOMATIC pass only.
+  // Naming it again is an explicit instruction and must work.
+  r = await settingsCall(fetchRoutes, 'removeGroup', { id: 'shared' })
+  assert.ok(r.ok, JSON.stringify(r))
+  r = await settingsCall(fetchRoutes, 'autoAlias')
+  assert.ok(r.ok)
+  r = await settingsCall(fetchRoutes, 'setAlias', { alias: 'shared', target: 'alpha_good' })
+  assert.ok(r.ok, 'an explicit claim resurrects a dismissed name: ' + JSON.stringify(r))
+  assert.equal(r.value.alias?.alias, 'shared', 'name available again: ' + JSON.stringify(r.value))
+  r = await settingsCall(fetchRoutes, 'setAlias', { alias: 'Shared', target: 'beta_good' })
+  assert.ok(r.ok, JSON.stringify(r))
+  assert.equal(r.value.reason, 'alias-collision', 'second claim promotes to a group')
+  assert.deepEqual(r.value.group.models.sort(), ['alpha_good', 'beta_good'], 'both models present')
+  console.log('PASS an explicit claim outranks a remembered deletion')
+
   // 8f. autoAlias merges a name that another model already holds
   r = await settingsCall(fetchRoutes, 'setAlias', { alias: 'good', target: 'alpha_good' })
   assert.ok(r.ok)
@@ -287,6 +317,67 @@ async function main() {
   assert.ok(autoGood, 'auto pass kept the group named good: ' + JSON.stringify(r.value.groups.map((g) => g.name)))
   assert.ok(autoGood.models.includes('alpha_good'), 'group still holds the first model')
   console.log('PASS autoAlias merges a colliding name into a group')
+
+  // 8f2. Every name the automatic pass derives is pure lowercase. The fake
+  // providers display "Good Model" / "Bad Model", so the auto names for them
+  // are the mixed-case path: they must come out as 'good' / 'bad'.
+  r = await settingsCall(fetchRoutes, 'autoAlias')
+  assert.ok(r.ok)
+  for (const name of [...(r.value.aliases ?? []).map((a) => a.alias), ...(r.value.groups ?? [])]) {
+    assert.equal(name, name.toLowerCase(), 'auto-generated name is lowercase: ' + name)
+  }
+  for (const name of r.value.skipped ?? []) {
+    assert.equal(name, name.toLowerCase(), 'a skipped auto name is lowercase too: ' + name)
+  }
+  r = await settingsCall(fetchRoutes, 'status')
+  assert.ok(r.value.aliases.length > 0, 'aliases exist to inspect')
+  for (const entry of r.value.aliases) {
+    assert.equal(entry.alias, entry.alias.toLowerCase(), 'stored alias is lowercase: ' + entry.alias)
+  }
+  r = await settingsCall(fetchRoutes, 'listGroups')
+  for (const group of r.value.groups) {
+    assert.equal(group.name, group.name.toLowerCase(), 'stored group name is lowercase: ' + group.name)
+  }
+  console.log('PASS every auto-generated name is pure lowercase')
+
+  // 8f3. A name may not be BOTH an alias and a group: the group owns it, so a
+  // leftover alias would render the same name twice with different controls.
+  // Claiming such a name must converge on the group, never keep the alias.
+  r = await settingsCall(fetchRoutes, 'setAlias', { alias: 'dupname', target: 'alpha_good' })
+  assert.ok(r.ok, JSON.stringify(r))
+  // Creating a group under a name an alias already holds must take the name
+  // over: the alias becomes a shadow, and its model joins the group so it stays
+  // reachable.
+  r = await settingsCall(fetchRoutes, 'createGroup', { name: 'dupname', models: ['beta_good'] })
+  assert.ok(r.ok, 'createGroup takes the name: ' + JSON.stringify(r))
+  r = await settingsCall(fetchRoutes, 'listAliases')
+  assert.ok(!r.value.aliases.some((a) => a.alias === 'dupname'), 'no alias survives beside the group: ' + JSON.stringify(r.value.aliases))
+  r = await settingsCall(fetchRoutes, 'listGroups')
+  const dupGroup = r.value.groups.find((g) => g.name === 'dupname')
+  assert.ok(dupGroup, 'the group owns the name')
+  assert.ok(dupGroup.models.includes('beta_good'), 'the group keeps its own member: ' + JSON.stringify(dupGroup.models))
+  assert.ok(dupGroup.models.includes('alpha_good'), 'the retired alias model joined too: ' + JSON.stringify(dupGroup.models))
+  console.log('PASS a name resolves to exactly one owner — the group')
+
+  // 8f4. A dismissal must never outlive the group it hides. Otherwise the auto
+  // pass skips a name the user can see on screen, so a model that should join
+  // the group never does — the reported "saved but not added" symptom.
+  r = await settingsCall(fetchRoutes, 'createGroup', { name: 'revive', models: ['alpha_good'] })
+  assert.ok(r.ok, JSON.stringify(r))
+  r = await settingsCall(fetchRoutes, 'removeGroup', { id: 'revive' })
+  assert.ok(r.ok, JSON.stringify(r))
+  r = await settingsCall(fetchRoutes, 'autoAlias')
+  assert.ok(r.ok)
+  // Recreate it behind the dismissal's back, exactly like the legacy data on
+  // disk where a dismissed name still had a live group.
+  r = await settingsCall(fetchRoutes, 'createGroup', { name: 'revive', models: ['alpha_good'] })
+  assert.ok(r.ok, 'recreate: ' + JSON.stringify(r))
+  r = await settingsCall(fetchRoutes, 'autoAlias')
+  assert.ok(r.ok)
+  r = await settingsCall(fetchRoutes, 'listGroups')
+  const revived = r.value.groups.find((g) => g.name === 'revive')
+  assert.ok(revived, 'the live group is not hidden by a stale dismissal: ' + JSON.stringify(r.value.groups.map((g) => g.name)))
+  console.log('PASS a dismissal does not outlive the group it hides')
 
   // 8g. per-model stop switch: stops scheduling, does NOT delete.
   // The model must stay listed (so the switch can be turned back on and so a
