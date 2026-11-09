@@ -261,6 +261,35 @@ async function main() {
   assert.equal(r.value.group.models.length, 3)
   console.log('PASS alias collision promotes to a group instead of stealing the name')
 
+  // 8f. autoAlias merges a name that another model already holds
+  r = await settingsCall(fetchRoutes, 'setAlias', { alias: 'good', target: 'alpha_good' })
+  assert.ok(r.ok)
+  r = await settingsCall(fetchRoutes, 'autoAlias')
+  assert.ok(r.ok)
+  r = await settingsCall(fetchRoutes, 'listGroups')
+  const autoGood = r.value.groups.find((g) => g.name === 'good')
+  assert.ok(autoGood, 'auto pass kept the group named good: ' + JSON.stringify(r.value.groups.map((g) => g.name)))
+  assert.ok(autoGood.models.includes('alpha_good'), 'group still holds the first model')
+  console.log('PASS autoAlias merges a colliding name into a group')
+
+  // 8g. per-model stop switch removes the model from pools and resolution
+  r = await settingsCall(fetchRoutes, 'setModelDisabled', { id: 'alpha_bad', disabled: true })
+  assert.ok(r.ok, JSON.stringify(r))
+  r = await settingsCall(fetchRoutes, 'status')
+  assert.equal(r.value.overrides.alpha_bad.disabled, true, 'override persisted')
+  const poolModels = await (await fetch(base + '/models?all=1')).json()
+  assert.ok(!poolModels.data.some((m) => m.id === 'alpha_bad'), 'stopped model not advertised')
+  chat = await (await post('/chat/completions', { model: 'alpha_bad', messages: [{ role: 'user', content: 'hi' }] })).json()
+  assert.equal(chat.error?.code, 'model_disabled', 'stopped model refuses requests: ' + JSON.stringify(chat).slice(0, 160))
+  // resuming restores it
+  r = await settingsCall(fetchRoutes, 'setModelDisabled', { id: 'alpha_bad', disabled: false })
+  assert.ok(r.ok)
+  r = await settingsCall(fetchRoutes, 'status')
+  assert.equal(r.value.overrides.alpha_bad, undefined, 'override cleared on resume')
+  const back = await (await fetch(base + '/models?all=1')).json()
+  assert.ok(back.data.some((m) => m.id === 'alpha_bad'), 'resumed model advertised again')
+  console.log('PASS per-model stop switch hides and refuses, resume restores')
+
   // 9. keys
   r = await settingsCall(fetchRoutes, 'createKey', { label: 'smoke' })
   assert.ok(r.ok)
