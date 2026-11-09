@@ -206,6 +206,22 @@ async function main() {
   assert.ok(r.value.ledger.totals.requests > 0, 'filtered totals non-zero')
   console.log('PASS merged filter options + filtered totals')
 
+  // 8b2. explicit time window narrows rows, totals and the wall together
+  {
+    const nowMs = Date.now()
+    const DAY = 86400000
+    const today = await settingsCall(fetchRoutes, 'listStats', { days: 7, from: nowMs - DAY, to: nowMs + 1000 })
+    assert.ok(today.ok, JSON.stringify(today))
+    const all = await settingsCall(fetchRoutes, 'listStats', { days: 7 })
+    assert.ok(today.value.ledger.totals.requests <= all.value.ledger.totals.requests, 'window never widens totals')
+    assert.ok(today.value.ledger.totals.requests > 0, 'today window keeps the calls made this run')
+    const past = await settingsCall(fetchRoutes, 'listStats', { days: 7, from: nowMs - 30 * DAY, to: nowMs - 2 * DAY })
+    assert.equal(past.value.ledger.totals.requests, 0, 'past-only window excludes every call from this run')
+    assert.equal(past.value.ledger.rows.length, 0, 'past-only window has no rows')
+    assert.deepEqual(past.value.ledger.applied.from !== null, true, 'window echoed in applied')
+  }
+  console.log('PASS explicit time window filter')
+
   // 8c. alias dismissal: delete -> autoAlias must NOT recreate; manual re-add lifts it
   r = await settingsCall(fetchRoutes, 'removeAlias', { alias: 'bad' })
   assert.ok(r.ok, JSON.stringify(r))
