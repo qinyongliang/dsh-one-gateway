@@ -221,7 +221,19 @@ async function main() {
   r = await settingsCall(fetchRoutes, 'listStats', { days: 7, model: 'pool' })
   assert.ok(r.ok)
   assert.ok(r.value.ledger.totals.requests > 0, 'filtered totals non-zero')
-  console.log('PASS merged filter options + filtered totals')
+  // A group row must name the member that answered, not only the group. Without
+  // this the table shows "pool" and the caller cannot tell which candidate ran.
+  {
+    const servedRows = r.value.ledger.rows.filter((row) => row.model === 'pool')
+    assert.ok(servedRows.length > 0, 'group rows present in the ledger')
+    const answered = servedRows.filter((row) => row.status === 'answered')
+    assert.ok(answered.length > 0, 'at least one grouped call answered')
+    for (const row of answered) {
+      assert.ok(row.served, 'a grouped call records the member that served it: ' + JSON.stringify(row))
+      assert.notEqual(row.served, 'pool', 'served is the member, never the group name')
+    }
+  }
+  console.log('PASS merged filter options + filtered totals + served member')
 
   // 8b2. explicit time window narrows rows, totals and the wall together
   {

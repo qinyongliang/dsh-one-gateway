@@ -71,7 +71,7 @@
   },
   "scripts": {
     "check": "node --check lib/index.js && node --check lib/names.js && node --check lib/keys.js && node --check lib/groups.js && node --check lib/strategy.js && node --check lib/stats.js && node --check lib/stats-store.js && node --check lib/aliases.js && node --check lib/request-store.js && node --check lib/client.js",
-    "test": "node test/run.mjs && node test/request-store.test.mjs && node test/multi-filter.test.mjs && node test/time-range.test.mjs && node test/picker-save.test.mjs && node test/row-readability.test.mjs && node test/no-model-switch.test.mjs && node test/no-type-column.test.mjs"
+    "test": "node test/run.mjs && node test/request-store.test.mjs && node test/multi-filter.test.mjs && node test/time-range.test.mjs && node test/picker-save.test.mjs && node test/row-readability.test.mjs && node test/no-model-switch.test.mjs && node test/no-type-column.test.mjs && node test/served-model.test.mjs"
   },
   "icon": "assets/icon-128.png"
 }
