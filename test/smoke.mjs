@@ -43,7 +43,11 @@ function fakeCtx() {
       listModels: async (provider) => provider === 'alpha'
         ? [{ id: 'good', name: 'Good Model' }, { id: 'bad', name: 'Bad Model' }]
         : [{ id: 'good', name: 'Good Model' }],
-      resolveModelInfo: async (provider, model) => ({ provider, id: model, name: model }),
+      resolveModelInfo: async (provider, model) => ({
+        provider, id: model, name: model,
+        context: { contextWindow: 128000 },
+        reasoning: { efforts: [{ id: 'low' }, { id: 'medium' }, { id: 'high' }] },
+      }),
       registerConfigurableProviders: () => () => {},
       registerAdapter: () => () => {},
       stream: (options) => {
@@ -106,7 +110,11 @@ async function main() {
   assert.equal(good.name, 'Good Model')
   const pub = await (await fetch(base + '/models')).json()
   assert.ok(!pub.data.some((m) => m.id === 'alpha_good'), 'canonical ids hidden by default')
-  console.log('PASS models list name+id + alias-only default')
+  const withCaps = await (await fetch(base + '/models?all=1')).json()
+  const capModel = withCaps.data.find((m) => m.id === 'alpha_good')
+  assert.deepEqual(capModel.reasoning_efforts, ['low', 'medium', 'high'], 'reasoning efforts advertised: ' + JSON.stringify(capModel))
+  assert.equal(capModel.context_window, 128000)
+  console.log('PASS models list name+id + alias-only default + reasoning efforts')
 
   // 2. chat non-streaming
   let chat = await (await post('/chat/completions', { model: 'alpha_good', messages: [{ role: 'user', content: 'hi' }] })).json()
