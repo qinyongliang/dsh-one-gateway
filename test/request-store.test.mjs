@@ -64,5 +64,19 @@ const okRow = store.rows({ key: 'k1' }).rows.find((r) => r.status === 'answered'
 assert.equal(okRow.errorCode, null)
 console.log('error details round-trip ok')
 
+// observability columns round-trip
+store.record({
+  ts: now, key: 'k1', provider: 'p1', model: 'm1', status: 'answered',
+  inputTokens: 100, outputTokens: 50, cacheTokens: 300,
+  effort: 'high', kind: 'stream', ttftMs: 1234, totalMs: 5678,
+})
+const rich = store.rows({ key: 'k1' }).rows.find((r) => r.effort === 'high')
+assert.equal(rich.cacheTokens, 300)
+assert.equal(rich.ttftMs, 1234)
+assert.equal(rich.totalMs, 5678)
+assert.equal(rich.kind, 'stream')
+assert.equal(rich.effort, 'high')
+console.log('observability columns round-trip ok')
+
 store.close()
 console.log('REQUEST-STORE-TESTS-PASSED')
