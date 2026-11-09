@@ -133,6 +133,20 @@ async function main() {
   assert.ok(sse.includes('data: [DONE]'))
   console.log('PASS chat streaming')
 
+  // 3b. TTFT is a request property, not a group property. A direct (non-group)
+  // streamed call must still record one; recording it only when a group leg
+  // existed left the column null on every direct call.
+  {
+    const hist = await settingsCall(fetchRoutes, 'listStats', { page: 0, pageSize: 50 })
+    assert.ok(hist.ok, JSON.stringify(hist))
+    const direct = (hist.value.ledger?.rows ?? []).find(
+      (row) => row.model === 'alpha_good' && row.kind === 'stream' && row.status === 'answered',
+    )
+    assert.ok(direct, 'the direct streamed call is in the ledger: ' + JSON.stringify((hist.value.ledger?.rows ?? []).map((x) => x.model + '/' + x.kind)))
+    assert.ok(direct.ttftMs !== null && direct.ttftMs !== undefined, 'direct streamed call recorded a TTFT: ' + JSON.stringify(direct))
+    console.log('PASS direct streamed call records TTFT')
+  }
+
   // 4. group + failover + stickiness
   let r = await settingsCall(fetchRoutes, 'createGroup', { name: 'pool', models: ['alpha_bad', 'beta_good'], strategy: 'sequential' })
   assert.ok(r.ok, JSON.stringify(r))
