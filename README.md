@@ -87,9 +87,10 @@ curl http://127.0.0.1:3090/v1/chat/completions \
 ```yaml
 - id: dsh-one-gateway
   config:
-    path: /v1          # 挂载点
+    path: /v1          # 独立监听上的挂载点
     lanPort: 3090      # 独立端口；false 关闭；0 随机
     lanHost: 0.0.0.0   # 监听地址
+    mount: false       # 是否同时挂到 DSH 自己的端口；默认在配置了 lanPort 时为 false
     apiKeys: []        # 固定密钥（与页面创建的密钥同时生效）
     providers: []      # 只暴露这些 provider；空 = 全部
     autoAlias: true    # 启动时自动生成默认别名

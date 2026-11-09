@@ -81,6 +81,9 @@ async function main() {
   const { apply } = await import('../lib/index.js')
   apply(ctx, {
     lanPort: false,
+    // The suite drives the routes through the web-server mount, which is off by
+    // default whenever a standalone listener is configured.
+    mount: true,
     keysFile: path.join(tmp, 'keys.json'),
     groupsFile: path.join(tmp, 'groups.json'),
     aliasesFile: path.join(tmp, 'aliases.json'),
@@ -469,6 +472,40 @@ async function main() {
   assert.equal(r.value.responsesPath, '/v1/responses')
   assert.ok(r.value.aliases.some((a) => a.alias === 'fast'))
   console.log('PASS status payload')
+
+  // The DSH web server is DSH's own port. With a standalone listener configured
+  // the gateway must NOT mount there, or the OpenAI surface answers on DSH's
+  // address too.
+  {
+    const second = fakeCtx()
+    apply(second.ctx, {
+      lanPort: 0,
+      mount: false,
+      keysFile: path.join(tmp, 'keys2.json'),
+      groupsFile: path.join(tmp, 'groups2.json'),
+      aliasesFile: path.join(tmp, 'aliases2.json'),
+      statsFile: path.join(tmp, 'stats2.json'),
+    })
+    assert.equal(second.routes.get('/v1'), undefined, 'mount:false must not register on the DSH web server')
+    assert.ok(!second.routes.has('/v1'), 'no /v1 route on the DSH server')
+    await second.stop()
+    console.log('PASS mount:false keeps /v1 off the DSH web server')
+  }
+
+  // Default: a configured standalone listener implies no DSH mount.
+  {
+    const third = fakeCtx()
+    apply(third.ctx, {
+      lanPort: 0,
+      keysFile: path.join(tmp, 'keys3.json'),
+      groupsFile: path.join(tmp, 'groups3.json'),
+      aliasesFile: path.join(tmp, 'aliases3.json'),
+      statsFile: path.join(tmp, 'stats3.json'),
+    })
+    assert.equal(third.routes.get('/v1'), undefined, 'a standalone listener implies mount:false')
+    await third.stop()
+    console.log('PASS a standalone listener implies no DSH mount')
+  }
 
   server.close()
   await stop()
