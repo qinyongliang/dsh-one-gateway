@@ -16,10 +16,12 @@ import { fileURLToPath } from 'node:url'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const src = fs.readFileSync(path.join(here, '..', 'lib', 'client.js'), 'utf8')
 
-// Arrows: input up, output down.
-assert.ok(src.includes('"↑" + (row.inputTokens'), 'input uses an up arrow')
+// Arrows: input up, output down. The input figure is the BILLED PROMPT
+// (uncached + cached) since DSH usage counts are disjoint; see
+// cache-ratio.test.mjs for why the raw uncached count must not be shown alone.
+assert.ok(src.includes('"↑" + billedPrompt.toLocaleString()'), 'input uses an up arrow')
 assert.ok(src.includes('"↓" + (row.outputTokens'), 'output uses a down arrow')
-assert.ok(!src.includes('"↓" + (row.inputTokens'), 'input must not use a down arrow')
+assert.ok(!src.includes('"↓" + billedPrompt'), 'input must not use a down arrow')
 assert.ok(!src.includes('"↑" + (row.outputTokens'), 'output must not use an up arrow')
 
 // Failed rows state the reason inline, in the error colour.
