@@ -44,4 +44,26 @@ assert.ok(
   'the enabled path is untouched',
 )
 
+/* 5. The groups TAB itself renders the switch.
+      The bug reported after the first fix: the switch existed only on the
+      models tab, attached to a group chip that renders only while one of the
+      group's members is on screen — so a disabled group with every member
+      stopped could not be turned back on at all. */
+const client = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
+assert.ok(
+  client.includes('call("updateGroup", { id: g.id, enabled: g.enabled === false })'),
+  'the groups tab toggles a group directly',
+)
+const groupsTabAt = client.indexOf('shownGroups.map((g) =>')
+assert.ok(groupsTabAt > 0, 'the groups tab renders rows')
+const groupsTab = client.slice(groupsTabAt, groupsTabAt + 4000)
+assert.ok(
+  groupsTab.includes('enabled: g.enabled === false'),
+  'the switch is inside the groups tab row, not only on the models tab',
+)
+assert.ok(
+  groupsTab.includes('opacity: g.enabled === false ? 0.55 : 1'),
+  'a disabled group is visibly dimmed in its own list',
+)
+
 console.log('GROUP-DISABLED-TESTS-PASSED')
