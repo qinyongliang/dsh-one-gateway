@@ -1,13 +1,23 @@
 /**
- * Guard: a model has no scheduling switch of its own.
+ * Guard: the two scheduling switches are INDEPENDENT scopes.
  *
- * The switch belongs to a name. A model is a target, and it is reachable
- * exactly when some enabled name points at it. A second flag on the model would
- * duplicate that fact — and it did, so stopping one model silently stopped every
- * alias pointing at it, which is precisely what a user reported as wrong.
+ * History, because this file has been wrong once in each direction:
  *
- * These assertions are structural on purpose: they fail if the concept is
- * reintroduced anywhere, not just if the current wording changes.
+ *  1. Originally a model carried one flag, and stopping it silently stopped
+ *     every alias pointing at it. That was reported as wrong: an alias switch
+ *     must govern only that name.
+ *  2. The fix made switches name-only. That left a model with NO name — e.g.
+ *     `loomy_DeepSeek-V4.1-Flash`, shown as "无名称" — with no switch at all,
+ *     so stopping every name still left it callable by its canonical id. That
+ *     was reported as the next bug.
+ *
+ * The settled contract, asserted here:
+ *
+ *   alias switch  — governs that NAME only; never cascades to siblings.
+ *   model switch  — governs the MODEL; explicitly chosen, and the reason a
+ *                   nameless model can be stopped at all.
+ *
+ * Neither may be implemented in terms of the other.
  */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -15,37 +25,53 @@ import { readFileSync } from 'node:fs'
 const index = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
 const client = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
 
-// 1. The model-level store, its RPC and its config key are gone.
-for (const gone of ['setModelDisabled', 'modelOverrides', 'loadOverrides', 'saveOverrides', 'overridesFile', 'isModelDisabled']) {
-  assert.ok(!index.includes(gone), `lib/index.js must not reintroduce "${gone}"`)
-}
-assert.ok(!client.includes('setModelDisabled'), 'lib/client.js must not call setModelDisabled')
-assert.ok(!client.includes('status?.overrides'), 'the client must not read a per-model override map')
-
-// 2. The two RPCs that DO own a switch exist.
+/* 1. Both scopes exist, each as its own RPC. */
 assert.ok(index.includes("case 'setAliasEnabled'"), 'an alias owns a switch')
 assert.ok(index.includes("case 'setGroupMemberStopped'"), 'a group owns its candidates\' switches')
+assert.ok(index.includes("case 'setModelStopped'"), 'a model owns a switch of its own')
 
-// 3. An alias's own switch gates routing, by the name the caller used.
+/* 2. The alias switch gates routing by the name the caller used — and ONLY
+      that name: it must not consult the model-level set, or one alias stop
+      would take its siblings down with it. */
 assert.ok(
   index.includes('if (!(await aliasStore.isEnabled(raw))) {'),
   'a stopped alias must be refused at resolution',
 )
-
-// 4. The catalog carries no per-model stopped flag.
 assert.ok(
-  !/id,\s*rawId,\s*provider,[\s\S]{0,400}?\.\.\.\(isModelDisabled\(id\)/.test(index),
-  'the catalog must not flag models as stopped',
+  !/aliasStore\.isEnabled[\s\S]{0,200}isModelStopped/.test(index),
+  'the alias switch must not cascade into the model switch',
 )
 
-// 5. A group candidate is skipped from the group's own set, never a global one.
+/* 3. The model switch is a real, separate store — not a view over aliases. */
+assert.ok(index.includes('const modelStops = new Map()'), 'the model switch has its own store')
+assert.ok(index.includes('const isModelStopped = (id) =>'), 'the model switch has its own predicate')
+assert.ok(
+  !index.includes('isModelStopped = async') && !index.includes('const isModelStopped = async'),
+  'the model switch must not be derived from the alias store',
+)
+
+/* 4. Stopping a model must NOT rewrite its aliases. The original complaint was
+      a cascade; a model stop that also flipped every alias would recreate it. */
+assert.ok(
+  !/setModelStopped[\s\S]{0,600}aliasStore\.setEnabled/.test(index),
+  'stopping a model must not disable its aliases',
+)
+
+/* 5. A group candidate is skipped from the group's own set as well. */
 assert.ok(
   index.includes('new Set(group.stopped ?? [])'),
   'group candidacy must read the group\'s own stopped set',
 )
 
-// 6. The client derives a model's state from its names.
-assert.ok(client.includes('const reachable = liveAliases.length > 0 || liveGroups.length > 0'),
-  'the client must derive reachability from the names pointing at a model')
+/* 6. The client renders BOTH switches, and derives the model's state from the
+      model-level list rather than only from its names. */
+assert.ok(
+  client.includes('const modelStopped = (status?.modelStops ?? []).includes(m.id)'),
+  'the client must read the model-level switch',
+)
+assert.ok(
+  client.includes('const reachable = !modelStopped && (liveAliases.length > 0 || liveGroups.length > 0)'),
+  'reachability combines both scopes',
+)
 
 console.log('NO-MODEL-SWITCH-TESTS-PASSED')
